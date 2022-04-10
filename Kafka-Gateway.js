@@ -196,10 +196,28 @@ class CallChain {
         this.callWithAck(this.node, event, this.innerAck, this.innerCallback, ...param);
     }
 
+    sendCallback(cb) {
+        this.nodeMonitor = cb;
+    }
+
     callWithAck(serviceName, event, ack, callback, ...param) {
         const that = this;
         function call(node) {
+            if (that.nodeMonitor) {
+                that.nodeMonitor({
+                    result: true,
+                    topic: node
+                });
+            }
             that.gateway.Producer.send(node, event, param, ack, callback);
+        }
+
+        function notFound() {
+            if (that.nodeMonitor) {
+                that.nodeMonitor({
+                    result: false
+                });
+            }
         }
 
         if (this.type == 'RES') {
@@ -230,6 +248,8 @@ class CallChain {
                     else {
                         // throw new Error('Resourse "' + serviceName + '" not found.');
                         console.error('Resourse "' + serviceName + '" not found.');
+
+                        notFound();
                         return;
 
                     }
@@ -238,7 +258,7 @@ class CallChain {
                 search();
             }
             else {
-
+                notFound();
             }
         }
         else if (this.type == 'NEAR') {
@@ -266,6 +286,7 @@ class CallChain {
             if (sameServer.length <= 0) {
                 // throw new Error('Nearest node "' + node + '" not found.');
                 console.error('Nearest node "' + node + '" not found.');
+                notFound();
                 return;
             }
 
@@ -275,14 +296,14 @@ class CallChain {
         else if (this.type == 'NODE') {
 
             if (!serviceName) {
-
+                notFound();
                 return;
             }
             call(serviceName);
         }
 
         else {
-
+            notFound();
         }
     }
 }
